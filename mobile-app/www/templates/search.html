@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>Simple Routing - RouteTask - 4.0</title>
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.11.4/themes/smoothness/jquery-ui.css">
+  <script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+  <script src="https://code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+  <link rel="stylesheet" href="/resources/demos/style.css">
+  <style>
+    html,
+    body,
+    #viewDiv {
+      padding: 0;
+      margin: 0;
+      height: 100%;
+      width: 100%;
+    }
+
+    #paneDiv {
+      position: absolute;
+      top: 10px;
+      left: 62px;
+      width: 175px;
+      height:175;
+      padding: 0 12px 0 12px;
+      background-color: #139765;
+      color: white;
+      border-radius: 7px;
+      opacity: .7;
+    }
+
+
+
+    #btn{
+
+background-color: #E18604;
+width:70px;
+height: 40px;
+border-radius: 15px;
+margin-left: 45px;
+
+
+    }
+  </style>
+
+  <script type="text/javascript">
+  var dojoConfig = {
+    packages: [
+    {
+      name: "identity-manager-cacher",
+      location: "https://nixta.github.io/js-api-identity-manager-cacher/js/4.x"
+    }]
+  };
+  </script>
+
+  <link rel="stylesheet" href="https://js.arcgis.com/4.0/esri/css/main.css">
+  <script src="https://js.arcgis.com/4.0/"></script>
+
+  <script>
+    var searchWidget1, searchWidget2;
+    var startGraphic, endGraphic;
+    require([
+      "esri/Map",
+      "esri/views/MapView",
+      "esri/Graphic",
+      "esri/layers/GraphicsLayer",
+      "esri/tasks/RouteTask",
+      "esri/tasks/support/RouteParameters",
+      "esri/tasks/support/FeatureSet",
+      "esri/symbols/SimpleMarkerSymbol",
+      "esri/symbols/SimpleLineSymbol",
+      "esri/Color",
+      "esri/core/urlUtils",
+      "esri/widgets/Search",
+      "dojo/on",
+      "identity-manager-cacher/cacher",
+      "dojo/domReady!"
+    ], function(
+      Map, MapView, Graphic, GraphicsLayer, RouteTask, RouteParameters,
+      FeatureSet, SimpleMarkerSymbol, SimpleLineSymbol, Color, urlUtils, Search, on
+    ) {
+
+      // proxy the route requests to avoid prompt for log in
+//      urlUtils.addProxyRule({
+//        urlPrefix: "route.arcgis.com",
+ //       proxyUrl: "/sproxy/"
+ //     });
+
+      // Point the URL to a valid route service
+      var routeTask = new RouteTask({
+        url: "https://route.arcgis.com/arcgis/rest/services/World/Route/NAServer/Route_World"
+      });
+
+      // The stops and route result will be stored in this layer
+      var routeLyr = new GraphicsLayer();
+
+      // Setup the route parameters
+      // var routeParams = new RouteParameters({
+      //   stops: new FeatureSet(),
+      //   outSpatialReference: { // autocasts as new SpatialReference()
+      //     wkid: 3857
+      //   }
+      // });
+
+      // Define the symbology used to display the stops
+      var stopSymbol = new SimpleMarkerSymbol({
+        style: "cross",
+        size: 15,
+        outline: { // autocasts as new SimpleLineSymbol()
+          width: 4
+        }
+      });
+
+      // Define the symbology used to display the route
+      var routeSymbol = new SimpleLineSymbol({
+        color: [0, 0, 255, 0.5],
+        width: 5
+      });
+
+      var map = new Map({
+        basemap: "streets",
+        layers: [routeLyr] // Add the route layer to the map
+      });
+      var view = new MapView({
+        container: "viewDiv", // Reference to the scene div created in step 5
+        map: map, // Reference to the map object created before the scene
+        center: [-117.195, 34.057],
+        zoom: 8
+      });
+
+      searchWidget1 = new Search({
+        view: view,
+        popupEnabled: false,
+        popupOpenOnSelect: false,
+
+      });
+
+      searchWidget2 = new Search({
+        view: view,
+        popupEnabled: false,
+        popupOpenOnSelect: false
+      });
+
+// Adds the search widget below other elements in
+// the top left corner of the view
+      view.ui.add(searchWidget1, {
+        position: "top-left",
+        index: 1
+      });
+// on(view, "click", addStop);
+
+      view.ui.add(searchWidget2, {
+        position: "top-left",
+        index: 2
+      });
+
+      searchWidget1.watch("resultGraphic", function (newVal, oldVal, property, object) {
+        startGraphic = newVal;
+        tryToGetRoute();
+      });
+
+      searchWidget2.watch("resultGraphic", function (newVal, oldVal, property, object) {
+        endGraphic = newVal;
+        tryToGetRoute();
+      });
+
+
+
+
+
+// Adds the search widget below other elements in
+// the top left corner of the view
+ // on(view, "click", addSecondStop);
+
+      // Adds a graphic when the user clicks the map. If 2 or more points exist, route is solved.
+
+     function tryToGetRoute() {
+      var routeParams = new RouteParameters({
+        stops: new FeatureSet(),
+        outSpatialReference: { // autocasts as new SpatialReference()
+          wkid: 102100
+        }
+      });
+
+      if (startGraphic != null) {
+        routeParams.stops.features.push(startGraphic);
+      }
+      if (endGraphic != null) {
+        routeParams.stops.features.push(endGraphic);
+      }
+
+      console.log("length is" + routeParams.stops.features.length);
+        if (routeParams.stops.features.length >= 2) {
+          console.log("Hello");
+          routeTask.solve(routeParams).then(showRoute);
+        }
+     }
+
+      function addStop(evt) {
+        // Add a point at the location of the map click
+        var stop = searchWidget1.resultGraphic;
+        // new Graphic({
+        //   geometry:  evt.mapPoint,
+        //   symbol: stopSymbol
+        // });
+        console.log("length is" + routeParams.stops.features.length);
+        routeLyr.add(stop);
+
+        // Execute the route task if 2 or more stops are input
+        routeParams.stops.features.push(stop);
+        console.log("length is" + routeParams.stops.features.length);
+        if (routeParams.stops.features.length >= 2) {
+          console.log("Hello");
+          routeTask.solve(routeParams).then(showRoute);
+        }
+      }
+
+      function addSecondStop(evt) {
+        // Add a point at the location of the map click
+        var secondstop = searchWidget2.resultGraphic;
+        // new Graphic({
+        //   geometry: evt.mapPoint,
+        //   symbol: stopSymbol
+        // });
+        routeLyr.add(secondstop);
+
+        // Execute the route task if 2 or more stops are input
+        routeParams.stops.features.push(secondstop);
+          console.log("length is" + routeParams.stops.features.length);
+        if (routeParams.stops.features.length >= 2) {
+           console.log("Hello111");
+          routeTask.solve(routeParams).then(showRoute);
+        }
+      }
+      // Adds the solved route to the map as a graphic
+      function showRoute(data) {
+        var routeResult = data.routeResults[0].route;
+        // routeResult = data.routeResults[1].route;
+        routeResult.symbol = routeSymbol;
+        routeLyr.add(routeResult);
+
+        var extent = routeResult.geometry.extent;
+        extent = extent.expand(1.5);
+        view.extent = extent;
+      }
+    });
+$(function() {
+    $( "#datepicker" ).datepicker();
+  });
+$(function() {
+    $( "#datepicker1" ).datepicker();
+  });
+  </script>
+</head>
+<body>
+  <div id="viewDiv"></div>
+  <div id="paneDiv" style="margin-top: 400px;">
+
+      <p style="margin-left: 20px;"> <input type="text" placeholder="Departure Date" id="datepicker"></p>
+      <p style="margin-left: 20px;"> <input type="text" placeholder="Return Date" id="datepicker1"></p>
+       <p style="margin-left: 20px;"> <input type="number" placeholder="No of passangers" id="nosPass"></p>
+        <p> <button Placehlder="Search" id="btn">Search</button></p>
+    </div>
+
+
+
+</body>
+</html>
